@@ -38,13 +38,30 @@ public class AdminController {
 
     @GetMapping("/stats/{username}")
     public Map<String, Object> stats(@PathVariable String username) {
-        return jdbc.queryForMap(
-                "SELECT username_cached AS username, COUNT(*) AS message_count, " +
-                        "MIN(created_at) AS first_message, MAX(created_at) AS last_message, " +
-                        "AVG(LENGTH(content)) AS avg_length, " +
-                        "(SELECT content FROM messages WHERE username_cached = ? ORDER BY created_at DESC LIMIT 1) AS last_message_text " +
-                        "FROM messages WHERE username_cached = ?",
-                username, username
+        userRepo.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found")); // Or return a 404 response
+
+        Map<String, Object> statistics = jdbc.queryForMap(
+                "SELECT " +
+                        "    u.username, " +
+                        "    COUNT(m.id) AS message_count, " +
+                        "    MIN(m.created_at) AS first_message, " +
+                        "    MAX(m.created_at) AS last_message, " +
+                        "    COALESCE(AVG(LENGTH(m.content)), 0) AS avg_length " + // Use COALESCE to return 0 instead of NULL for average
+                        "FROM users u " +
+                        "LEFT JOIN messages m ON u.id = m.user_id " +
+                        "WHERE u.username = ? " +
+                        "GROUP BY u.username",
+                username
         );
+
+        String lastMessageText = jdbc.query(
+                "SELECT content FROM messages WHERE username_cached = ? ORDER BY created_at DESC LIMIT 1",
+                rs -> rs.next() ? rs.getString(1) : null, // Safely extract result or return null
+                username
+        );
+
+        statistics.put("last_message_text", lastMessageText);
+        return statistics;
     }
 }
