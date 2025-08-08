@@ -31,14 +31,25 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // Define a whitelist for public endpoints
+        final String[] PUBLIC_WHITELIST = {
+                "/swagger-ui.html",
+                "/swagger-ui/**",
+                "/v3/api-docs/**",
+                "/api-docs/**",      // In case you kept your custom path
+                "/h2-console/**",
+                "/api/messages/**"   // Explicitly allow the public messages API
+        };
+
         http
                 .csrf(csrf -> csrf.disable()) // disable CSRF for APIs
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().permitAll()
+                        .requestMatchers(PUBLIC_WHITELIST).permitAll()       // Allow access to all whitelisted endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // Secure admin endpoints
+                        .anyRequest().authenticated()                        // Secure all other endpoints by default
                 )
                 .httpBasic(Customizer.withDefaults())
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin())); // allow h2-console frames
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin())); // for h2-console
 
         return http.build();
     }
