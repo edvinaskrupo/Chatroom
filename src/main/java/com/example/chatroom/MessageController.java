@@ -22,10 +22,10 @@ public class MessageController {
     }
 
     @PostMapping
-    public ResponseEntity<?> postMessage(@RequestParam String username, @RequestBody String content) {
-        var user = userRepo.findByUsername(username)
+    public ResponseEntity<?> postMessage(@RequestBody MessageRequest request) { // Change signature
+        var user = userRepo.findByUsername(request.username()) // Use request object
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        messageRepo.save(user.id(), username, content);
+        messageRepo.save(user.id(), request.username(), request.content()); // Use request object
         return ResponseEntity.ok().build();
     }
 }
